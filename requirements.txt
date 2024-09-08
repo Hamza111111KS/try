@@ -1,8 +1,9 @@
-streamlit
-pandas
-beautifulsoup4
 requests
-lxml
+beautifulsoup4
+pandas
 numpy
-matplotlib
 scipy
+matplotlib
+streamlit
+selenium
+webdriver_manager
