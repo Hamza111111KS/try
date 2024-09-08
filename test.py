@@ -98,57 +98,52 @@ def telecharger_csv_tmp(date, save_directory="downloads"):
     except Exception as e:
         log_to_file(f"An error occurred: {e}")
         return pd.DataFrame()
+import playwright.sync_api as playwright_sync
+from playwright.sync_api import sync_playwright
 
-# Selenium Headless Browser to Fetch Data (if necessary)
-def get_data_with_selenium(url):
-    """Fetch page using Selenium to bypass 403 issues."""
+def get_data_with_playwright(url):
+    """Fetch page using Playwright to bypass 403 issues."""
     try:
-        options = Options()
-        options.headless = True  # Run in headless mode (no browser UI)
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url)
 
-        # Set up Chrome driver with headless mode
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            # Wait for the page to fully load
+            page.wait_for_load_state("networkidle")
 
-        # Fetch the URL
-        driver.get(url)
+            # Extract the page content
+            page_source = page.content()
 
-        # Get page source after rendering the page
-        page_source = driver.page_source
+            # Close the browser
+            browser.close()
 
-        # Close the browser
-        driver.quit()
-
-        return page_source
+            return page_source
     except Exception as e:
-        log_to_file(f"Selenium error: {e}")
+        log_to_file(f"Playwright error: {e}")
         return None
-
-# Example Streamlit app to test the logging mechanism and fetching process
 def main():
-    st.title("Test Data Fetching and Logging with 403 Handling")
+    st.title("Test Data Fetching and Logging with 403 Handling (Playwright)")
     
     # Input date picker
     selected_date = st.date_input("Select Date", datetime.today())
     
-    # Fetch data for the selected date using requests or Selenium
+    # Fetch data for the selected date using requests or Playwright
     df = telecharger_csv_tmp(selected_date)
     
     if df.empty:
-        st.error("Failed to retrieve data. Trying with Selenium...")
+        st.error("Failed to retrieve data. Trying with Playwright...")
         url = construire_url_tmp(selected_date)
-        page_source = get_data_with_selenium(url)
+        page_source = get_data_with_playwright(url)
         if page_source:
-            st.success("Data fetched using Selenium!")
+            st.success("Data fetched using Playwright!")
             st.write(page_source)  # Display raw HTML content for now
         else:
-            st.error("Failed to retrieve data with Selenium. Check the log file.")
+            st.error("Failed to retrieve data with Playwright. Check the log file.")
             with open('error_log.txt', 'r') as file:
                 st.text(file.read())
     else:
         st.success("Data fetched successfully!")
         st.dataframe(df)
-
 if __name__ == "__main__":
     main()
