@@ -7,3 +7,4 @@ matplotlib
 streamlit
 selenium
 webdriver_manager
+playwright
