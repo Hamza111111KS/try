@@ -4,11 +4,8 @@ import pandas as pd
 import os
 import streamlit as st
 from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.options import Options
 import time
+import random
 
 # Function to log messages to a text file
 def log_to_file(message, log_file='error_log.txt'):
@@ -40,14 +37,32 @@ def telecharger_csv_tmp(date, save_directory="downloads"):
         url_page = construire_url_tmp(date)
         log_to_file(f"Fetching data from URL: {url_page}")
 
-        # Use headers to mimic a real browser request
+        # Rotating User-Agent strings to mimic browser requests
+        user_agents = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0.2 Safari/605.1.15",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:91.0) Gecko/20100101 Firefox/91.0"
+        ]
+
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "User-Agent": random.choice(user_agents),
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive",
-            "Referer": "https://www.bkam.ma"
+            "Referer": "https://www.bkam.ma",  # Use referer to look like coming from the same site
+            "DNT": "1",  # Do Not Track header
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-User": "?1",
+            "Sec-Fetch-Dest": "document"
         }
+
+        # Introducing a random delay to simulate human behavior
+        delay = random.uniform(1, 3)
+        log_to_file(f"Sleeping for {delay:.2f} seconds before making the request")
+        time.sleep(delay)
 
         response = requests.get(url_page, headers=headers)
         log_to_file(f"HTTP response status code: {response.status_code}")
@@ -98,52 +113,25 @@ def telecharger_csv_tmp(date, save_directory="downloads"):
     except Exception as e:
         log_to_file(f"An error occurred: {e}")
         return pd.DataFrame()
-import playwright.sync_api as playwright_sync
-from playwright.sync_api import sync_playwright
 
-def get_data_with_playwright(url):
-    """Fetch page using Playwright to bypass 403 issues."""
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url)
-
-            # Wait for the page to fully load
-            page.wait_for_load_state("networkidle")
-
-            # Extract the page content
-            page_source = page.content()
-
-            # Close the browser
-            browser.close()
-
-            return page_source
-    except Exception as e:
-        log_to_file(f"Playwright error: {e}")
-        return None
+# Example Streamlit app to test the logging mechanism
 def main():
-    st.title("Test Data Fetching and Logging with 403 Handling (Playwright)")
+    st.title("Test Data Fetching and Logging (Enhanced Headers and Delays)")
     
     # Input date picker
     selected_date = st.date_input("Select Date", datetime.today())
     
-    # Fetch data for the selected date using requests or Playwright
+    # Fetch data for the selected date
+    st.write(f"Fetching data for {selected_date}")
     df = telecharger_csv_tmp(selected_date)
     
     if df.empty:
-        st.error("Failed to retrieve data. Trying with Playwright...")
-        url = construire_url_tmp(selected_date)
-        page_source = get_data_with_playwright(url)
-        if page_source:
-            st.success("Data fetched using Playwright!")
-            st.write(page_source)  # Display raw HTML content for now
-        else:
-            st.error("Failed to retrieve data with Playwright. Check the log file.")
-            with open('error_log.txt', 'r') as file:
-                st.text(file.read())
+        st.error("Failed to retrieve data. Check the log file for details.")
+        with open('error_log.txt', 'r') as file:
+            st.text(file.read())
     else:
         st.success("Data fetched successfully!")
         st.dataframe(df)
+
 if __name__ == "__main__":
     main()
